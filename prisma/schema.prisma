@@ -1,0 +1,182 @@
+// CodeLearn Stage 1 data model.
+// RULE: never change this schema without updating docs/ (see AGENTS.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+/// Account role for later auth stage; admins manage content.
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+/// Courses are archived before deletion so student progress is never lost by accident.
+enum CourseStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+/// A lesson's attachments: the chapter PDF and the zipped working example.
+enum AssetType {
+  PDF
+  EXAMPLE_ZIP
+}
+
+/// Scenario difficulty, used later for matching/pacing.
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// ---------- Models ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  role         Role     @default(STUDENT)
+  passwordHash String? // filled by the auth stage, not used yet
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  enrollments       Enrollment[]
+  scenarioInstances ScenarioInstance[]
+
+  @@index([role])
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  language    String // e.g. "python", "javascript"
+  status      CourseStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  lessons     Lesson[]
+  enrollments Enrollment[]
+
+  @@index([status]) // listings filter archived/deleted out
+  @@index([language])
+}
+
+model Lesson {
+  id         String   @id @default(cuid())
+  courseId   String
+  orderIndex Int // display order inside its course
+  title      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  course    Course             @relation(fields: [courseId], references: [id])
+  assets    Asset[]
+  templates ScenarioTemplate[]
+
+  @@unique([courseId, orderIndex]) // two lessons in a course cannot collide
+  @@index([courseId])
+}
+
+/// File metadata only — actual bytes live in S3-compatible storage (later stage).
+model Asset {
+  id         String    @id @default(cuid())
+  lessonId   String
+  type       AssetType
+  name       String // human-readable file name
+  storageKey String    @unique // object key in storage
+  size       Int // bytes
+  createdAt  DateTime  @default(now())
+
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@index([lessonId])
+}
+
+model ScenarioTemplate {
+  id            String     @id @default(cuid())
+  lessonId      String
+  title         String
+  storyTemplate String // story text with {{slot}} placeholders
+  variableSlots Json // slot definitions: name -> array of possible values
+  testSpec      Json // hidden test cases used to judge submissions
+  difficulty    Difficulty @default(EASY)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  lesson    Lesson             @relation(fields: [lessonId], references: [id])
+  instances ScenarioInstance[]
+
+  @@index([lessonId])
+}
+
+/// A student's personalized version of a template, generated from seed = userId + templateId.
+/// The same student always gets the same version; two students almost never share one.
+model ScenarioInstance {
+  id         String   @id @default(cuid())
+  userId     String
+  templateId String
+  seed       Int // deterministic random seed derived from userId + templateId
+  payload    Json // fully generated scenario: filled story, data, constraints
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id])
+  template    ScenarioTemplate @relation(fields: [templateId], references: [id])
+  submissions Submission[]
+
+  @@unique([userId, templateId]) // one instance per user per template
+  @@index([userId])
+}
+
+model Submission {
+  id         String   @id @default(cuid())
+  instanceId String
+  code       String // student's submitted code
+  result     Json // per-test-case results
+  passed     Boolean
+  createdAt  DateTime @default(now())
+
+  instance ScenarioInstance @relation(fields: [instanceId], references: [id])
+
+  @@index([instanceId])
+}
+
+/// Enrollment + completion progress in one place: a user enrolled in a course,
+/// with a row per completed lesson.
+model Enrollment {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  user     User             @relation(fields: [userId], references: [id])
+  course   Course           @relation(fields: [courseId], references: [id])
+  progress LessonProgress[]
+
+  @@unique([userId, courseId]) // enroll once per course
+  @@index([courseId])
+}
+
+model LessonProgress {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  isCompleted  Boolean   @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+
+  @@unique([enrollmentId, lessonId]) // one progress row per lesson per enrollment
+}
