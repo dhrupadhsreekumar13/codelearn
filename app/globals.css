@@ -135,3 +135,78 @@
     @apply font-sans;
   }
 }
+
+/* ---------------- Motion (Stage 1 UI polish) ----------------
+   Calm, IDE-like entrances only: small rise + fade. No bouncy springs,
+   per the "dark, calm" theme rule in AGENTS.md. Stagger by setting an
+   inline `animation-delay` on elements that carry the class. */
+
+/* Gentle rise-in entrance used across pages. `both` keeps the element
+   hidden at its delay, so staggered lists don't flash before starting. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Progress bar fills: animate from 0 to the inline-provided --bar-width.
+   The element keeps its final width as a plain style, so this is SSR-safe. */
+@keyframes grow-bar {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--bar-width, 0%);
+  }
+}
+.bar-fill {
+  width: var(--bar-width, 0%);
+  animation: grow-bar 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+/* Terminal-style caret for the top bar prompt. */
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.caret {
+  animation: caret-blink 1.2s step-end infinite;
+}
+
+/* Soft glow pulse for the "active课程" status dot (pairs with animate-ping). */
+@keyframes dot-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 6px 1px var(--color-primary);
+  }
+}
+.dot-live {
+  animation: dot-glow 2.4s ease-in-out infinite;
+}
+
+/* Respect users who prefer reduced motion: keep layouts, drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .rise-in,
+  .bar-fill,
+  .caret,
+  .dot-live {
+    animation: none;
+  }
+}

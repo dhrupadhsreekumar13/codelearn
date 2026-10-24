@@ -18,8 +18,8 @@ export function Sidebar() {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Brand */}
-      <div className="flex items-center gap-2 px-4 py-5">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+      <div className="rise-in flex items-center gap-2 px-4 py-5">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-transform duration-300 hover:rotate-6">
           <GraduationCap className="size-5" />
         </span>
         <div className="leading-tight">
@@ -29,20 +29,21 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1 px-2">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon: Icon }, i) => {
           const isActive = pathname === href;
           return (
             <Link
               key={href}
               href={href}
+              style={{ animationDelay: `${(i + 1) * 70}ms` }}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                "rise-in group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors duration-200",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               )}
             >
-              <Icon className="size-4" />
+              <Icon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               {label}
             </Link>
           );
